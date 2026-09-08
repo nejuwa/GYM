@@ -1,0 +1,215 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  username     String    @unique
+  passwordHash String
+  role         String    @default("MEMBER") // OWNER, MANAGER, TRAINER, MEMBER
+  status       String    @default("ACTIVE") // ACTIVE, SUSPENDED, DEACTIVATED
+  fullName     String
+  phone        String?
+  avatarUrl    String?
+  lastLogin    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  memberProfile  Member?
+  trainerProfile Trainer?
+  auditLogs      AuditLog[]
+  paymentsMade   Payment[]      @relation("RecordedPayments")
+  expensesLogged Expense[]      @relation("RecordedExpenses")
+  notifications  Notification[]
+}
+
+model Member {
+  id               String    @id @default(uuid())
+  userId           String?   @unique
+  memberCode       String    @unique
+  fullName         String
+  gender           String
+  dateOfBirth      DateTime?
+  phone            String
+  email            String?
+  address          String?
+  photo            String?
+  emergencyContact String?
+  status           String    @default("ACTIVE") // ACTIVE, SUSPENDED, DEACTIVATED
+  qrCode           String    @unique
+  registrationDate DateTime  @default(now())
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user        User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  memberships Membership[]
+  attendances Attendance[]
+  payments    Payment[]
+  trainers    TrainerAssignment[]
+  sessions    TrainingSession[]
+}
+
+model Package {
+  id           String   @id @default(uuid())
+  name         String   @unique
+  description  String?
+  durationDays Int
+  price        Float
+  status       String   @default("ACTIVE")
+  features     String? // Comma-separated or JSON list of perks
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships Membership[]
+}
+
+model Membership {
+  id          String   @id @default(uuid())
+  memberId    String
+  packageId   String
+  startDate   DateTime
+  endDate     DateTime
+  status      String   @default("ACTIVE") // ACTIVE, EXPIRED, SUSPENDED, CANCELLED, PENDING
+  autoRenew   Boolean  @default(false)
+  pricePaid   Float
+  notes       String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  member   Member    @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  package  Package   @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  payments Payment[]
+}
+
+model Attendance {
+  id              String    @id @default(uuid())
+  memberId        String
+  date            DateTime  @default(now())
+  entryTime       DateTime  @default(now())
+  exitTime        DateTime?
+  status          String    @default("GRANTED") // GRANTED, REJECTED
+  rejectionReason String?
+  accessMethod    String    @default("QR_SCAN") // QR_SCAN or MANUAL
+  verifiedBy      String?
+  createdAt       DateTime  @default(now())
+
+  member Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model Payment {
+  id            String   @id @default(uuid())
+  memberId      String
+  membershipId  String?
+  amount        Float
+  paymentDate   DateTime @default(now())
+  paymentMethod String   @default("CASH") // CASH, CARD, BANK_TRANSFER, MOBILE_MONEY
+  status        String   @default("COMPLETED") // COMPLETED, PENDING, REFUNDED
+  receiptNumber String   @unique
+  notes         String?
+  recordedById  String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  member     Member      @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  membership Membership? @relation(fields: [membershipId], references: [id], onDelete: SetNull)
+  recordedBy User?       @relation("RecordedPayments", fields: [recordedById], references: [id], onDelete: SetNull)
+}
+
+model Expense {
+  id                String   @id @default(uuid())
+  title             String
+  category          String   @default("OTHER") // EQUIPMENT, UTILITIES, RENT, SALARIES, MAINTENANCE, MARKETING, SUPPLIES, OTHER
+  amount            Float
+  expenseDate       DateTime @default(now())
+  paymentMethod     String   @default("CASH")
+  vendor            String?
+  notes             String?
+  receiptAttachment String?
+  recordedById      String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  recordedBy User? @relation("RecordedExpenses", fields: [recordedById], references: [id], onDelete: SetNull)
+}
+
+model Trainer {
+  id             String   @id @default(uuid())
+  userId         String?  @unique
+  fullName       String
+  phone          String
+  email          String?
+  specialization String
+  bio            String?
+  photo          String?
+  status         String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user            User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
+  assignedMembers TrainerAssignment[]
+  sessions        TrainingSession[]
+}
+
+model TrainerAssignment {
+  id           String   @id @default(uuid())
+  trainerId    String
+  memberId     String
+  assignedDate DateTime @default(now())
+  status       String   @default("ACTIVE")
+  createdAt    DateTime @default(now())
+
+  trainer Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@unique([trainerId, memberId])
+}
+
+model TrainingSession {
+  id            String   @id @default(uuid())
+  trainerId     String
+  memberId      String
+  title         String
+  scheduledDate DateTime
+  startTime     String
+  endTime       String
+  status        String   @default("SCHEDULED") // SCHEDULED, COMPLETED, CANCELLED
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  trainer Trainer @relation(fields: [trainerId], references: [id], onDelete: Cascade)
+  member  Member  @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model Notification {
+  id          String   @id @default(uuid())
+  recipientId String? // Null means broadcast to all
+  title       String
+  message     String
+  type        String   @default("SYSTEM") // MEMBERSHIP, PAYMENT, ATTENDANCE, SYSTEM, ANNOUNCEMENT
+  isRead      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  recipient User? @relation(fields: [recipientId], references: [id], onDelete: Cascade)
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  userName  String
+  role      String
+  action    String
+  module    String
+  details   String?
+  ipAddress String?
+  result    String   @default("SUCCESS") // SUCCESS or FAILURE
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
