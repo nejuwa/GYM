@@ -102,6 +102,98 @@ export const getFinancialReport = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const getPaymentReport = async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const where: any = { status: 'COMPLETED' };
+
+    if (startDate || endDate) {
+      where.paymentDate = {};
+      if (startDate) where.paymentDate.gte = new Date(String(startDate));
+      if (endDate) where.paymentDate.lte = new Date(String(endDate));
+    }
+
+    const payments = await prisma.payment.findMany({
+      where,
+      select: {
+        amount: true,
+        paymentMethod: true,
+        paymentDate: true,
+      },
+      orderBy: { paymentDate: 'desc' },
+    });
+
+    const totalAmount = payments.reduce((sum, payment) => sum + payment.amount, 0);
+    const byMethod = payments.reduce<Record<string, { count: number; amount: number }>>((summary, payment) => {
+      const current = summary[payment.paymentMethod] || { count: 0, amount: 0 };
+      summary[payment.paymentMethod] = {
+        count: current.count + 1,
+        amount: current.amount + payment.amount,
+      };
+      return summary;
+    }, {});
+
+    res.json({
+      success: true,
+      summary: {
+        totalAmount,
+        paymentCount: payments.length,
+      },
+      byMethod,
+      payments,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to generate payment report' });
+  }
+};
+
+export const getExpenseReport = async (req: AuthRequest, res: Response) => {
+  try {
+    const { startDate, endDate } = req.query;
+    const where: any = {};
+
+    if (startDate || endDate) {
+      where.expenseDate = {};
+      if (startDate) where.expenseDate.gte = new Date(String(startDate));
+      if (endDate) where.expenseDate.lte = new Date(String(endDate));
+    }
+
+    const expenses = await prisma.expense.findMany({
+      where,
+      select: {
+        title: true,
+        category: true,
+        amount: true,
+        expenseDate: true,
+        paymentMethod: true,
+      },
+      orderBy: { expenseDate: 'desc' },
+    });
+
+    const totalAmount = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+    const byCategory = expenses.reduce<Record<string, { count: number; amount: number }>>((summary, expense) => {
+      const current = summary[expense.category] || { count: 0, amount: 0 };
+      summary[expense.category] = {
+        count: current.count + 1,
+        amount: current.amount + expense.amount,
+      };
+      return summary;
+    }, {});
+
+    res.json({
+      success: true,
+      summary: {
+        totalAmount,
+        expenseCount: expenses.length,
+      },
+      byCategory,
+      expenses,
+    });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to generate expense report' });
+  }
+};
+
 export const getMemberReport = async (req: AuthRequest, res: Response) => {
   try {
     const totalMembers = await prisma.member.count();

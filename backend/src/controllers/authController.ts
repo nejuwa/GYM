@@ -5,6 +5,7 @@ import { createAuditEntry } from '../middlewares/audit';
 import { AccountStatus } from '../types';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/token';
 import { comparePassword, hashPassword } from '../utils/password';
+import { getUploadedProfileImageUrl } from '../middlewares/profileImageUpload';
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -142,6 +143,11 @@ export const refresh = async (req: Request, res: Response) => {
   }
 };
 
+export const logout = async (req: AuthRequest, res: Response) => {
+  createAuditEntry(req, 'LOGOUT', 'AUTH', 'User logged out successfully');
+  res.json({ success: true, message: 'Logout successful' });
+};
+
 export const getMe = async (req: AuthRequest, res: Response) => {
   try {
     if (!req.user) {
@@ -195,7 +201,8 @@ export const updateMe = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: 'Full name cannot be empty' });
     }
 
-    const normalizedAvatarUrl = avatarUrl ?? photo ?? null;
+    const uploadedImageUrl = req.file ? getUploadedProfileImageUrl(req, req.file.filename) : undefined;
+    const normalizedAvatarUrl = uploadedImageUrl ?? avatarUrl ?? photo;
 
     const user = await prisma.user.update({
       where: { id: req.user!.id },

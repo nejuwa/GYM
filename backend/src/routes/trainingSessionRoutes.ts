@@ -2,7 +2,9 @@ import { Router } from 'express';
 import {
   getTrainingSessions,
   createTrainingSession,
+  updateTrainingSession,
   updateTrainingSessionStatus,
+  deleteTrainingSession,
 } from '../controllers/trainerController';
 import { authenticate, authorize } from '../middlewares/auth';
 import { Role } from '../types';
@@ -11,6 +13,8 @@ const router = Router();
 
 router.get('/', authenticate, getTrainingSessions);
 router.post('/', authenticate, authorize([Role.OWNER, Role.MANAGER, Role.TRAINER]), createTrainingSession);
+router.patch('/:id', authenticate, authorize([Role.OWNER, Role.MANAGER, Role.TRAINER]), updateTrainingSession);
 router.patch('/:id/status', authenticate, authorize([Role.OWNER, Role.MANAGER, Role.TRAINER]), updateTrainingSessionStatus);
+router.delete('/:id', authenticate, authorize([Role.OWNER, Role.MANAGER, Role.TRAINER]), deleteTrainingSession);
 
 export default router;

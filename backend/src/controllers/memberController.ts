@@ -5,6 +5,7 @@ import { AuthRequest } from '../middlewares/auth';
 import { createAuditEntry } from '../middlewares/audit';
 import { AccountStatus, MembershipStatus, Role } from '../types';
 import { hashPassword } from '../utils/password';
+import { getUploadedProfileImageUrl } from '../middlewares/profileImageUpload';
 
 export const getMembers = async (req: AuthRequest, res: Response) => {
   try {
@@ -128,6 +129,8 @@ export const createMember = async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ success: false, message: 'Full name, phone, gender, and password are required' });
     }
 
+    const uploadedPhoto = req.file ? getUploadedProfileImageUrl(req, req.file.filename) : undefined;
+    const normalizedPhoto = uploadedPhoto ?? photo;
     const normalizedEmail = email ? String(email).trim().toLowerCase() : null;
     const normalizedUsername = username
       ? String(username).trim()
@@ -167,7 +170,7 @@ export const createMember = async (req: AuthRequest, res: Response) => {
           role: Role.MEMBER,
           status: AccountStatus.ACTIVE,
           phone,
-          avatarUrl: photo || `https://api.dicebear.com/7.x/avataaars/svg?seed=${normalizedUsername}`,
+          avatarUrl: normalizedPhoto || `https://api.dicebear.com/7.x/avataaars/svg?seed=${normalizedUsername}`,
         },
       });
 
@@ -184,7 +187,7 @@ export const createMember = async (req: AuthRequest, res: Response) => {
           phone,
           email: normalizedEmail,
           address: address || null,
-          photo: photo || `https://api.dicebear.com/7.x/shapes/svg?seed=${memberCode}`,
+          photo: normalizedPhoto || `https://api.dicebear.com/7.x/shapes/svg?seed=${memberCode}`,
           emergencyContact: emergencyContact || null,
           status: AccountStatus.ACTIVE,
           qrCode: qrCodePayload,
@@ -256,19 +259,33 @@ export const updateMember = async (req: AuthRequest, res: Response) => {
       return res.status(404).json({ success: false, message: 'Member not found' });
     }
 
-    const updated = await prisma.member.update({
-      where: { id },
-      data: {
-        fullName: fullName ?? existing.fullName,
-        gender: gender ?? existing.gender,
-        dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : existing.dateOfBirth,
-        phone: phone ?? existing.phone,
-        email: email !== undefined ? email : existing.email,
-        address: address !== undefined ? address : existing.address,
-        photo: photo ?? existing.photo,
-        emergencyContact: emergencyContact !== undefined ? emergencyContact : existing.emergencyContact,
-        status: status ?? existing.status,
-      },
+    const uploadedPhoto = req.file ? getUploadedProfileImageUrl(req, req.file.filename) : undefined;
+    const nextPhoto = uploadedPhoto ?? (photo !== undefined ? (photo || null) : existing.photo);
+    const photoChanged = uploadedPhoto !== undefined || photo !== undefined;
+    const updated = await prisma.$transaction(async (tx) => {
+      const member = await tx.member.update({
+        where: { id },
+        data: {
+          fullName: fullName ?? existing.fullName,
+          gender: gender ?? existing.gender,
+          dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : existing.dateOfBirth,
+          phone: phone ?? existing.phone,
+          email: email !== undefined ? email : existing.email,
+          address: address !== undefined ? address : existing.address,
+          photo: nextPhoto,
+          emergencyContact: emergencyContact !== undefined ? emergencyContact : existing.emergencyContact,
+          status: status ?? existing.status,
+        },
+      });
+
+      if (existing.userId && photoChanged) {
+        await tx.user.update({
+          where: { id: existing.userId },
+          data: { avatarUrl: nextPhoto },
+        });
+      }
+
+      return member;
     });
 
     createAuditEntry(req, 'UPDATE_MEMBER', 'MEMBERS', `Updated member information for ${updated.fullName} (${updated.memberCode})`);

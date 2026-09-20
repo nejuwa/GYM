@@ -8,6 +8,7 @@ import apiRoutes from './routes';
 import prisma from './config/db';
 import { errorHandler } from './middlewares/errorHandler';
 import { startMembershipLifecycleScheduler } from './services/membershipLifecycleService';
+import path from 'node:path';
 
 dotenv.config();
 
@@ -79,6 +80,7 @@ app.use('/api', limiter);
 // Body Parsing & Logging
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));

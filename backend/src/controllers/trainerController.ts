@@ -6,6 +6,7 @@ import { createAuditEntry } from '../middlewares/audit';
 import { notifySessionScheduled } from '../services/notificationService';
 import { AccountStatus, Role, SessionStatus } from '../types';
 import { hashPassword } from '../utils/password';
+import { getUploadedProfileImageUrl } from '../middlewares/profileImageUpload';
 
 export const getTrainers = async (req: AuthRequest, res: Response) => {
   try {
@@ -86,6 +87,7 @@ export const getTrainerById = async (req: AuthRequest, res: Response) => {
 export const createTrainer = async (req: AuthRequest, res: Response) => {
   try {
     const { fullName, phone, email, specialization, bio, photo, password } = req.body;
+    const normalizedPhoto = req.file ? getUploadedProfileImageUrl(req, req.file.filename) : photo;
 
     if (!fullName || !phone || !email || !specialization || !password) {
       return res.status(400).json({ success: false, message: 'Full name, phone, email, specialization, and password are required' });
@@ -122,7 +124,7 @@ export const createTrainer = async (req: AuthRequest, res: Response) => {
           role: Role.TRAINER,
           status: AccountStatus.ACTIVE,
           phone,
-          avatarUrl: photo || `https://api.dicebear.com/7.x/personas/svg?seed=${username}`,
+          avatarUrl: normalizedPhoto || `https://api.dicebear.com/7.x/personas/svg?seed=${username}`,
         },
       });
       const trainer = await tx.trainer.create({
@@ -132,7 +134,7 @@ export const createTrainer = async (req: AuthRequest, res: Response) => {
           email: normalizedEmail,
           specialization,
           bio: bio || null,
-          photo: photo || `https://api.dicebear.com/7.x/personas/svg?seed=${fullName}`,
+          photo: normalizedPhoto || `https://api.dicebear.com/7.x/personas/svg?seed=${fullName}`,
           userId: user.id,
           status: AccountStatus.ACTIVE,
         },
@@ -177,6 +179,8 @@ export const updateTrainer = async (req: AuthRequest, res: Response) => {
       }
     }
 
+    const uploadedPhoto = req.file ? getUploadedProfileImageUrl(req, req.file.filename) : undefined;
+    const nextPhoto = uploadedPhoto ?? (photo !== undefined ? (photo || null) : existing.photo);
     const updated = await prisma.$transaction(async (tx) => {
       if (existing.userId) {
         await tx.user.update({
@@ -185,7 +189,7 @@ export const updateTrainer = async (req: AuthRequest, res: Response) => {
             email: normalizedEmail,
             fullName: fullName ?? existing.fullName,
             phone: phone ?? existing.phone,
-            avatarUrl: photo ?? existing.photo,
+            avatarUrl: nextPhoto,
           },
         });
       }
@@ -197,7 +201,7 @@ export const updateTrainer = async (req: AuthRequest, res: Response) => {
           email: normalizedEmail,
           specialization: specialization ?? existing.specialization,
           bio: bio !== undefined ? bio : existing.bio,
-          photo: photo ?? existing.photo,
+          photo: nextPhoto,
           status: status ?? existing.status,
         },
       });
@@ -363,5 +367,63 @@ export const updateTrainingSessionStatus = async (req: AuthRequest, res: Respons
     res.json({ success: true, message: `Session status updated to ${status}`, session: updated });
   } catch (error: any) {
     res.status(500).json({ success: false, message: 'Failed to update session status' });
+  }
+};
+
+export const updateTrainingSession = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { trainerId, memberId, title, scheduledDate, startTime, endTime, status, notes } = req.body;
+
+    const existing = await prisma.trainingSession.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Training session not found' });
+    }
+
+    if (trainerId !== undefined) {
+      const trainer = await prisma.trainer.findUnique({ where: { id: trainerId } });
+      if (!trainer) return res.status(404).json({ success: false, message: 'Trainer not found' });
+    }
+
+    if (memberId !== undefined) {
+      const member = await prisma.member.findUnique({ where: { id: memberId } });
+      if (!member) return res.status(404).json({ success: false, message: 'Member not found' });
+    }
+
+    const updated = await prisma.trainingSession.update({
+      where: { id },
+      data: {
+        trainerId: trainerId ?? existing.trainerId,
+        memberId: memberId ?? existing.memberId,
+        title: title ?? existing.title,
+        scheduledDate: scheduledDate ? new Date(scheduledDate) : existing.scheduledDate,
+        startTime: startTime ?? existing.startTime,
+        endTime: endTime ?? existing.endTime,
+        status: status ?? existing.status,
+        notes: notes !== undefined ? notes : existing.notes,
+      },
+      include: { trainer: true, member: true },
+    });
+
+    createAuditEntry(req, 'UPDATE_SESSION', 'TRAINERS', `Updated training session "${updated.title}"`);
+    res.json({ success: true, message: 'Training session updated successfully', session: updated });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to update training session' });
+  }
+};
+
+export const deleteTrainingSession = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const existing = await prisma.trainingSession.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Training session not found' });
+    }
+
+    await prisma.trainingSession.delete({ where: { id } });
+    createAuditEntry(req, 'DELETE_SESSION', 'TRAINERS', `Deleted training session "${existing.title}"`);
+    res.json({ success: true, message: 'Training session deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to delete training session' });
   }
 };

@@ -68,6 +68,29 @@ export const markAllAsRead = async (req: AuthRequest, res: Response) => {
   }
 };
 
+export const deleteNotification = async (req: AuthRequest, res: Response) => {
+  try {
+    const { id } = req.params;
+    const notification = await prisma.notification.findUnique({ where: { id } });
+
+    if (!notification) {
+      return res.status(404).json({ success: false, message: 'Notification not found' });
+    }
+
+    const isOwnerOrManager = req.user?.role === 'OWNER' || req.user?.role === 'MANAGER';
+    const canDelete = notification.recipientId === req.user!.id || (notification.recipientId === null && isOwnerOrManager);
+
+    if (!canDelete) {
+      return res.status(403).json({ success: false, message: 'Access denied to this notification' });
+    }
+
+    await prisma.notification.delete({ where: { id } });
+    res.json({ success: true, message: 'Notification deleted successfully' });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: 'Failed to delete notification' });
+  }
+};
+
 export const sendNotification = async (req: AuthRequest, res: Response) => {
   try {
     const { recipientId, title, message, type } = req.body;

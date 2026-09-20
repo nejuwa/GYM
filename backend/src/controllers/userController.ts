@@ -35,6 +35,12 @@ export const getUsers = async (req: AuthRequest, res: Response) => {
         avatarUrl: true,
         lastLogin: true,
         createdAt: true,
+        memberProfile: {
+          select: { photo: true },
+        },
+        trainerProfile: {
+          select: { photo: true },
+        },
       },
       orderBy: { createdAt: 'desc' },
     });
