@@ -13,45 +13,58 @@ uploaded gym files, or generated secrets.
 ## 2. Deploy the API and database from the Render Blueprint
 
 The repository includes [`render.yaml`](./render.yaml), which defines a
-Frankfurt PostgreSQL database and the Node API service. In Render, choose
+free-tier Frankfurt PostgreSQL database and Node API service. In Render, choose
 **New > Blueprint**, connect the GitHub repository, select the branch, review
 the resources, and deploy. The Blueprint generates separate JWT secrets,
-connects the backend to the database, attaches persistent storage, and applies
-the Prisma schema before deploying the service.
+connects the backend to the database, and applies the Prisma schema when the
+service starts.
 
 During Blueprint setup, provide `CORS_ORIGIN` as the exact Vercel production
 origin, for example `https://your-app.vercel.app` (no trailing slash). Change
 the region in `render.yaml` if you want to host the app elsewhere. The
-Blueprint uses paid Render plans for the API, database, and persistent disk.
+Blueprint uses Render's `free` plan for the API and database.
 
 The API build command is
 `npm ci --include=dev && npm run prisma:generate && npm run build`; the start
-command is `npm start`; and Render health checks `/api/health`.
+command is `npm run prisma:push && npm start`; and Render health checks
+`/api/health`.
 
-The Prisma `db push` runs before each deploy to keep the database schema
-aligned with Prisma. Review schema changes and back up real data before
-deployment: `db push` is not a migration history and schema changes can affect
-existing data. The seed script is not run automatically because it deletes
-existing gym records. A new, empty database has no login account by default.
-If you need initial demo records and an owner account, run
-`npm run prisma:seed` once from the Render service Shell after the first
-successful deploy, and immediately change the owner's password. Never run this
-command against a database containing real records.
+On the free plan, Render does not support a pre-deploy command, so the start
+command runs `npm run prisma:push` before starting the API. This happens on
+every service start. Review schema changes carefully: `db push` is not a
+migration history and can affect existing data. The seed script is not run
+automatically because it deletes existing gym records. A new, empty database
+has no login account by default.
+
+### Free-tier limitations
+
+This Blueprint avoids paid Render resources, but the free tier is intended for
+testing and hobby use, not production:
+
+- The API sleeps after 15 minutes without traffic and can take about a minute
+  to wake. Its filesystem is ephemeral; uploaded profile images and the source
+  gym-description file may disappear on sleep, restart, or redeploy. Free web
+  services cannot attach persistent disks.
+- Render's free PostgreSQL database is limited to 1 GB and expires 30 days
+  after creation. Upgrade it before expiry to avoid losing the database and
+  its data.
+- Free services may restart or have maintenance downtime, and the workspace
+  has monthly free-instance-hour limits.
+
+Keep backups of any important data, and do not use this configuration for
+production or real member records. For persistent uploads and an always-on API,
+use paid Render service and disk plans.
 
 Add model-provider variables only if enabling the gym assistant, such as
 `GEMINI_API_KEY`, `RAG_LLM_API_KEY`, and `RAG_EMBEDDING_API_KEY`. Store secrets
 in Render's Environment settings, never in the frontend or Git.
 
-### Persist uploads on Render
-
-The backend stores the gym description and profile images on disk. Render's
-default filesystem is temporary, so the Blueprint attaches a persistent disk
-at `/var/data`. The configured paths store the description under
-`/var/data/rag` and profile images under `/var/data/uploads`.
+### Uploads on the free tier
 
 The source file `backend/data/gym_description.*` is not committed; after
 deployment, upload the gym description again through the authenticated admin
-upload endpoint. This stores it on the persistent disk and indexes it.
+upload endpoint. The uploaded file is stored on the service's temporary
+filesystem and may need to be uploaded again after a restart or redeploy.
 
 If enabling pgvector for assistant document search, make sure the Render
 PostgreSQL instance supports the `vector` extension and enable it before
@@ -113,8 +126,8 @@ does not allow every origin in production.
 3. Visit the Render `/api/health` URL and confirm the database connection.
 4. If using the assistant, upload the gym description from an OWNER or MANAGER
    account and verify the admin health endpoint reports indexed chunks.
-5. Upload a profile image and confirm it remains available after a Render
-   redeploy.
+5. Upload a profile image and confirm it is served correctly. Remember that
+   free Render files may disappear on restart, spin-down, or redeploy.
 
 ## Operational notes
 
