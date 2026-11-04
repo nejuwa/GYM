@@ -14,6 +14,7 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const uploadsDirectory = path.resolve(process.env.UPLOADS_DIR || 'uploads');
 
 const validateProductionConfig = () => {
   if (process.env.NODE_ENV !== 'production') return;
@@ -50,18 +51,18 @@ app.use(
 
 // CORS configuration
 const allowedOrigins = process.env.CORS_ORIGIN
-  ? process.env.CORS_ORIGIN.split(',')
+  ? process.env.CORS_ORIGIN.split(',').map((origin) => origin.trim()).filter(Boolean)
   : ['http://localhost:5173', 'http://localhost:3000', 'http://127.0.0.1:5173'];
 
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. mobile apps, curl) or allowed origins
-      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV !== 'production') {
         callback(null, true);
-      } else {
-        callback(null, true); // Permissive in dev
+        return;
       }
+      callback(null, false);
     },
     credentials: true,
   })
@@ -80,7 +81,7 @@ app.use('/api', limiter);
 // Body Parsing & Logging
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use('/uploads', express.static(path.resolve(process.cwd(), 'uploads')));
+app.use('/uploads', express.static(uploadsDirectory));
 
 if (process.env.NODE_ENV === 'development') {
   app.use(morgan('dev'));

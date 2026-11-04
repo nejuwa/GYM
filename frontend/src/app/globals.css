@@ -64,8 +64,104 @@
     --radius: 0.5rem;
   }
 
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --background: #0f172a;
+    --foreground: #e2e8f0;
+    --card: #111827;
+    --card-foreground: #e2e8f0;
+    --primary-light: #3b1720;
+    --secondary: #020617;
+    --secondary-hover: #0f172a;
+    --secondary-foreground: #f8fafc;
+    --muted: #1e293b;
+    --muted-foreground: #94a3b8;
+    --accent: #334155;
+    --accent-foreground: #e2e8f0;
+    --success-light: #052e24;
+    --success-foreground: #a7f3d0;
+    --warning-light: #422006;
+    --warning-foreground: #fde68a;
+    --border: #334155;
+    --input: #475569;
+    --ring: #fb7185;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root[data-theme="system"] {
+      color-scheme: dark;
+      --background: #0f172a;
+      --foreground: #e2e8f0;
+      --card: #111827;
+      --card-foreground: #e2e8f0;
+      --primary-light: #3b1720;
+      --secondary: #020617;
+      --secondary-hover: #0f172a;
+      --secondary-foreground: #f8fafc;
+      --muted: #1e293b;
+      --muted-foreground: #94a3b8;
+      --accent: #334155;
+      --accent-foreground: #e2e8f0;
+      --success-light: #052e24;
+      --success-foreground: #a7f3d0;
+      --warning-light: #422006;
+      --warning-foreground: #fde68a;
+      --border: #334155;
+      --input: #475569;
+      --ring: #fb7185;
+    }
+  }
+
   * {
     border-color: var(--border);
+  }
+}
+
+@layer utilities {
+  .dark .bg-white,
+  .dark .bg-white\/95 {
+    background-color: #111827;
+  }
+
+  .dark .bg-slate-50,
+  .dark .hover\:bg-slate-50:hover,
+  .dark .focus-visible\:bg-slate-50:focus-visible {
+    background-color: #0f172a;
+  }
+
+  .dark .bg-slate-100,
+  .dark .hover\:bg-slate-100:hover {
+    background-color: #1e293b;
+  }
+
+  .dark .bg-\[\#F8FAFC\] {
+    background-color: #0b1120;
+  }
+
+  .dark .text-slate-950,
+  .dark .text-slate-900,
+  .dark .text-slate-800 {
+    color: #f1f5f9;
+  }
+
+  .dark .text-slate-700,
+  .dark .text-slate-600 {
+    color: #cbd5e1;
+  }
+
+  .dark .text-slate-500,
+  .dark .text-slate-400 {
+    color: #94a3b8;
+  }
+
+  .dark .border-slate-100,
+  .dark .border-slate-200,
+  .dark .border-slate-300 {
+    border-color: #334155;
+  }
+
+  .dark .bg-primary-light {
+    background-color: #3b1720;
   }
 }
 

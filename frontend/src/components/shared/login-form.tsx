@@ -110,6 +110,22 @@ export function LoginForm() {
         </Button>
       </form>
 
+      {process.env.NODE_ENV === "development" && (
+        <div className="mt-6 rounded-xl border border-border bg-slate-50 p-4 text-left">
+          <p className="text-sm font-semibold text-slate-800">Demo account</p>
+          <dl className="mt-2 space-y-1 text-xs text-slate-600">
+            <div className="flex gap-2">
+              <dt className="font-medium">Email:</dt>
+              <dd>owner@gymmis.com</dd>
+            </div>
+            <div className="flex gap-2">
+              <dt className="font-medium">Password:</dt>
+              <dd>admin123</dd>
+            </div>
+          </dl>
+        </div>
+      )}
+
       <div className="mt-16 flex items-center justify-center gap-2 text-[12px] text-slate-500">
         <ShieldCheck className="h-[18px] w-[18px] text-slate-400" strokeWidth={1.5} />
         Secure and Trusted

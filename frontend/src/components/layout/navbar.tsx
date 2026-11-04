@@ -6,11 +6,21 @@ import { usePathname } from "next/navigation";
 import { Bell, Menu, ChevronDown, LogOut, UserCircle2, KeyRound } from "lucide-react";
 import { Logo } from "@/components/ui/logo";
 import { Avatar } from "@/components/ui/avatar";
+import { AiNavbarIcon } from "@/components/layout/ai-navbar-icon";
+import { ThemeSwitcher } from "@/components/layout/theme-switcher";
 import { useAuth } from "@/providers/auth-provider";
 import { getNotifications } from "@/lib/api/notifications";
 import { navItems, findCurrentPage } from "@/lib/nav-items";
 
-export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
+export function Navbar({
+  onMenuClick,
+  onAiClick,
+  assistantUnread,
+}: {
+  onMenuClick: () => void;
+  onAiClick: () => void;
+  assistantUnread: boolean;
+}) {
   const { user, logout } = useAuth();
   const pathname = usePathname();
   const [profileOpen, setProfileOpen] = useState(false);
@@ -70,6 +80,10 @@ export function Navbar({ onMenuClick }: { onMenuClick: () => void }) {
             </span>
           )}
         </Link>
+
+        <ThemeSwitcher />
+
+        <AiNavbarIcon unread={assistantUnread} onClick={onAiClick} />
 
         <div className="relative" ref={menuRef}>
           <button

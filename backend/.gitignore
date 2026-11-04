@@ -11,6 +11,7 @@ build/
 npm-debug.log*
 
 coverage/
+data/
 
 .DS_Store
 Thumbs.db
@@ -22,6 +23,5 @@ Thumbs.db
 
 *.pid
 *.tmp
-
 
 

@@ -13,6 +13,7 @@ import trainingSessionRoutes from './trainingSessionRoutes';
 import notificationRoutes from './notificationRoutes';
 import reportRoutes from './reportRoutes';
 import auditLogRoutes from './auditLogRoutes';
+import ragRoutes from './ragRoutes';
 
 const router = Router();
 
@@ -30,6 +31,7 @@ router.use('/training-sessions', trainingSessionRoutes);
 router.use('/notifications', notificationRoutes);
 router.use('/reports', reportRoutes);
 router.use('/audit-logs', auditLogRoutes);
+router.use('/rag', ragRoutes);
 
 // Health check endpoint
 router.get('/health', (req, res) => {

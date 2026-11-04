@@ -33,12 +33,22 @@ export async function apiFetch<T>(path: string, options: RequestOptions = {}): P
     requestHeaders.Authorization = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    method,
-    headers: requestHeaders,
-    body: body !== undefined ? (isFormData ? body as FormData : JSON.stringify(body)) : undefined,
-    signal,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      method,
+      headers: requestHeaders,
+      body: body !== undefined ? (isFormData ? body as FormData : JSON.stringify(body)) : undefined,
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error(
+        `Unable to connect to the GYMMIS API at ${API_BASE_URL}. Make sure the backend is running and NEXT_PUBLIC_API_BASE_URL points to its /api URL.`
+      );
+    }
+    throw error;
+  }
 
   let data: unknown = null;
   try {

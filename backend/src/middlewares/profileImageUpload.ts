@@ -3,7 +3,7 @@ import path from 'node:path';
 import multer from 'multer';
 import { randomUUID } from 'node:crypto';
 
-const uploadDirectory = path.resolve(process.cwd(), 'uploads', 'profile-images');
+const uploadDirectory = path.resolve(process.env.UPLOADS_DIR || 'uploads', 'profile-images');
 
 fs.mkdirSync(uploadDirectory, { recursive: true });
 
