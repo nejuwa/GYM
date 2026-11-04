@@ -10,41 +10,33 @@ Push this repository to a GitHub repository that you can connect to both
 Render and Vercel. Do not commit `.env` files, API keys, database passwords,
 uploaded gym files, or generated secrets.
 
-## 2. Create the Render PostgreSQL database
+## 2. Deploy the API and database from the Render Blueprint
 
-1. In Render, create a PostgreSQL database and select a region.
-2. Keep the database private. Copy its **Internal Database URL** for the
-   backend service when both are in the same Render region. Otherwise use the
-   external URL if necessary.
-3. Keep the database in the same region as the backend to reduce latency.
+The repository includes [`render.yaml`](./render.yaml), which defines a
+Frankfurt PostgreSQL database and the Node API service. In Render, choose
+**New > Blueprint**, connect the GitHub repository, select the branch, review
+the resources, and deploy. The Blueprint generates separate JWT secrets,
+connects the backend to the database, attaches persistent storage, and applies
+the Prisma schema before deploying the service.
 
-## 3. Deploy the backend API on Render
+During Blueprint setup, provide `CORS_ORIGIN` as the exact Vercel production
+origin, for example `https://your-app.vercel.app` (no trailing slash). Change
+the region in `render.yaml` if you want to host the app elsewhere. The
+Blueprint uses paid Render plans for the API, database, and persistent disk.
 
-Create a **Web Service** from the repository:
+The API build command is
+`npm ci --include=dev && npm run prisma:generate && npm run build`; the start
+command is `npm start`; and Render health checks `/api/health`.
 
-| Setting | Value |
-|---|---|
-| Root Directory | `backend` |
-| Runtime | Node |
-| Build Command | `npm ci --include=dev && npm run prisma:generate && npm run build` |
-| Start Command | `npm start` |
-| Health Check Path | `/api/health` |
-
-Set these environment variables in the Render service. Use Render's database
-URL and generate unique secrets; do not copy credentials from chat or source
-control.
-
-| Variable | Value |
-|---|---|
-| `NODE_ENV` | `production` |
-| `DATABASE_URL` | Internal Database URL from the Render PostgreSQL database |
-| `JWT_SECRET` | New random secret, at least 32 characters |
-| `JWT_REFRESH_SECRET` | A different new random secret |
-| `JWT_EXPIRES_IN` | `7d` |
-| `JWT_REFRESH_EXPIRES_IN` | `30d` |
-| `CORS_ORIGIN` | The Vercel production URL, e.g. `https://your-app.vercel.app` |
-| `RAG_DATA_DIR` | `/var/data/rag` |
-| `UPLOADS_DIR` | `/var/data/uploads` |
+The Prisma `db push` runs before each deploy to keep the database schema
+aligned with Prisma. Review schema changes and back up real data before
+deployment: `db push` is not a migration history and schema changes can affect
+existing data. The seed script is not run automatically because it deletes
+existing gym records. A new, empty database has no login account by default.
+If you need initial demo records and an owner account, run
+`npm run prisma:seed` once from the Render service Shell after the first
+successful deploy, and immediately change the owner's password. Never run this
+command against a database containing real records.
 
 Add model-provider variables only if enabling the gym assistant, such as
 `GEMINI_API_KEY`, `RAG_LLM_API_KEY`, and `RAG_EMBEDDING_API_KEY`. Store secrets
@@ -53,30 +45,13 @@ in Render's Environment settings, never in the frontend or Git.
 ### Persist uploads on Render
 
 The backend stores the gym description and profile images on disk. Render's
-default filesystem is temporary, so create and attach a persistent disk to the
-backend service with mount path `/var/data`. The variables above put the
-description under `/var/data/rag` and profile images under
-`/var/data/uploads`.
+default filesystem is temporary, so the Blueprint attaches a persistent disk
+at `/var/data`. The configured paths store the description under
+`/var/data/rag` and profile images under `/var/data/uploads`.
 
 The source file `backend/data/gym_description.*` is not committed; after
 deployment, upload the gym description again through the authenticated admin
 upload endpoint. This stores it on the persistent disk and indexes it.
-
-### Initialize the database schema
-
-After setting `DATABASE_URL`, initialize an empty production database once.
-From the Render service Shell, run:
-
-```sh
-npm run prisma:push
-```
-
-This applies the current Prisma schema to the database. Back up the database
-before applying schema changes to a database that contains real data. Do not
-run `npm run prisma:seed` on a database with existing data; the seed script
-deletes existing gym records. If this is a brand-new empty database and you
-want sample records, you may run the seed script once from the Render Shell,
-then sign in and immediately change the seeded owner password.
 
 If enabling pgvector for assistant document search, make sure the Render
 PostgreSQL instance supports the `vector` extension and enable it before

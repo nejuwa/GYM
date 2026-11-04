@@ -1,0 +1,45 @@
+databases:
+  - name: gymmis-db
+    databaseName: gymmis
+    user: gymmis
+    plan: basic-256mb
+    region: frankfurt
+
+services:
+  - type: web
+    name: gymmis-api
+    runtime: node
+    plan: starter
+    region: frankfurt
+    rootDir: backend
+    buildCommand: npm ci --include=dev && npm run prisma:generate && npm run build
+    preDeployCommand: npm run prisma:push
+    startCommand: npm start
+    healthCheckPath: /api/health
+    disk:
+      name: gymmis-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gymmis-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 30d
+      - key: CORS_ORIGIN
+        sync: false
+      - key: RAG_DATA_DIR
+        value: /var/data/rag
+      - key: UPLOADS_DIR
+        value: /var/data/uploads
+      - key: RAG_VECTOR_STORE
+        value: pgvector
